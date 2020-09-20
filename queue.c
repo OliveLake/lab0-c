@@ -49,26 +49,41 @@ bool q_insert_head(queue_t *q, char *s)
     /* TODO: What should you do if the q is NULL? */
     /* Don't forget to allocate space for the string and copy it */
     /* What if either call to malloc returns NULL? */
+    list_ele_t *new;
+
+    /* return false if the q is NULL */
     if (!q)
         return false;
 
-    list_ele_t *newh = (list_ele_t *) malloc(sizeof(list_ele_t));
-    if (!newh)
-        return false;
-
-    newh->value = (char *) malloc(strlen(s) + 1);
-    if (!newh->value) {
-        free(newh);
+    new = malloc(sizeof(list_ele_t));
+    if (!new) {
+        free(new);
         return false;
     }
-    memset(newh->value, '\0', strlen(s) + 1);
-    strncpy(newh->value, s, strlen(s));
 
-    if (q->size == 0) {
-        q->tail = newh;
+    /* allocate space for the string */
+    new->value = malloc(sizeof(char) * (strlen(s) + 1));
+
+    /* free the space if malloc returns NULL? */
+    if (!new->value) {
+        free(new);
+        return false;
     }
-    newh->next = q->head;
-    q->head = newh;
+
+    /* copy the string to the allocated space */
+    memset(new->value, '\0', strlen(s) + 1);
+    strncpy(new->value, s, strlen(s));
+
+    if (!q->head) {
+        q->head = q->tail = new;
+        new->next = NULL;
+    } else {
+        new->next = q->head;
+        q->head = new;
+    }
+
+    q->size += 1;
+
     return true;
 }
 
@@ -87,28 +102,37 @@ bool q_insert_tail(queue_t *q, char *s)
     if (!q)
         return false;
 
-    list_ele_t *newh = (list_ele_t *) malloc(sizeof(list_ele_t));
-    if (!newh)
+    list_ele_t *new;
+    /* allocate space for the new element */
+    new = malloc(sizeof(list_ele_t));
+
+    /* return false if allocate error */
+    if (!new)
         return false;
 
-    newh->value = (char *) malloc(strlen(s) + 1);
-    if (!newh->value) {
-        free(newh);
+    new->value = malloc(sizeof(char) * (strlen(s) + 1));
+
+    /* free the space and return false if error when allocating space for the
+     * value */
+    if (!new->value) {
+        free(new);
         return false;
     }
-    memset(newh->value, '\0', strlen(s) + 1);
-    strncpy(newh->value, s, strlen(s));
 
+    memset(new->value, '\0', strlen(s) + 1);
+    strncpy(new->value, s, strlen(s));
 
-    newh->next = NULL;
-    if (q->size == 0) {
-        q->head = newh;
+    /* q->tail point to the new element and new->next point to NULL */
+    new->next = NULL;
+    if (!q->tail) {
+        q->tail = q->head = new;
     } else {
-        q->tail->next = newh;
+        q->tail->next = new;
+        q->tail = new;
     }
-    q->tail = newh;
-    q->size++;
 
+    /* increase the size of queue */
+    q->size += 1;
     return true;
 }
 
@@ -189,38 +213,41 @@ void q_reverse(queue_t *q)
  * element, do nothing.
  */
 
-list_ele_t *merge_sort(list_ele_t *head)
+void merge_sort(list_ele_t **head)
 {
-    if (!head || !head->next)
-        return head;
-    list_ele_t *fast = head->next;
-    list_ele_t *slow = head;
-    while (fast && fast->next) {
-        fast = fast->next->next;
-        slow = slow->next;
-    }
-    fast = slow->next;
-    slow->next = NULL;
-    list_ele_t *l1 = merge_sort(head);
-    list_ele_t *l2 = merge_sort(fast);
+    if (!(*head) || !((*head)->next))
+        return;
 
-    list_ele_t *newh = NULL;
-    list_ele_t **tmp = &newh;
-    while (l1 && l2) {
-        if (strcmp(l1->value, l2->value) < 0) {
-            *tmp = l1;
-            l1 = l1->next;
+    list_ele_t *tmp1, *tmp2;
+    tmp1 = (*head)->next;
+    tmp2 = *head;
+    while (tmp1 && tmp1->next) {
+        tmp1 = tmp1->next->next;
+        tmp2 = tmp2->next;
+    }
+    tmp1 = tmp2->next;
+    tmp2->next = NULL;
+    tmp2 = *head;
+
+    merge_sort(&tmp1);
+    merge_sort(&tmp2);
+
+    *head = NULL;
+    list_ele_t **tmp = head;
+    while (tmp1 && tmp2) {
+        if (strcmp(tmp1->value, tmp2->value) < 0) {
+            *tmp = tmp1;
+            tmp1 = tmp1->next;
         } else {
-            *tmp = l2;
-            l2 = l2->next;
+            *tmp = tmp2;
+            tmp2 = tmp2->next;
         }
         tmp = &((*tmp)->next);
     }
-    if (l1)
-        *tmp = l1;
-    else if (l2)
-        *tmp = l2;
-    return newh;
+
+    *tmp = tmp1 ? tmp1 : tmp2;
+
+    return;
 }
 
 void q_sort(queue_t *q)
@@ -230,9 +257,11 @@ void q_sort(queue_t *q)
 
     if (!q || q->size < 2)
         return;
-    q->head = merge_sort(q->head);
-    list_ele_t *tmp = q->tail;
-    while (tmp->next)
-        tmp = tmp->next;
-    q->tail = tmp;
+
+    merge_sort(&q->head);
+
+    while (q->tail->next)
+        q->tail = q->tail->next;
+
+    return;
 }
